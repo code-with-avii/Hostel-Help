@@ -1,3 +1,60 @@
+
+// Login-only logic (runs only when login form exists)
+
+// Login logic for pages with inline login form (index.html)
+(function setupLoginPageLogic() {
+    const loginForm = document.getElementById('login-form');
+    const loginPage = document.getElementById('login-page');
+    const mainApp = document.getElementById('main-app');
+    if (!loginForm) return; // No login form on this page
+
+    const message = document.getElementById('message');
+
+    loginForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const password = document.getElementById('login-password').value;
+        if (password === 'login-password') {
+            if (message) {
+                message.style.color = 'green';
+                message.textContent = '✅ Login successful!';
+            }
+            setTimeout(() => {
+                if (loginPage) loginPage.style.display = 'none';
+                if (mainApp) mainApp.style.display = '';
+            }, 300);
+        } else {
+            if (message) {
+                message.style.color = 'red';
+                message.textContent = '❌ Incorrect password.';
+            }
+        }
+    });
+
+    // Fallback for inline onclick on the Login button
+    window.login = function login() {
+        const password = document.getElementById('login-password').value;
+        if (password === 'login-password') {
+            if (loginPage) loginPage.style.display = 'none';
+            if (mainApp) mainApp.style.display = '';
+        } else if (message) {
+            message.style.color = 'red';
+            message.textContent = '❌ Incorrect password.';
+        }
+    };
+
+    // Signup/Login toggles for links
+    window.showSignup = function showSignup(event) {
+        if (event) event.preventDefault();
+        if (loginContainer) loginContainer.style.display = 'none';
+        if (signupContainer) signupContainer.style.display = 'flex';
+    };
+
+    window.showLogin = function showLogin(event) {
+        if (event) event.preventDefault();
+        if (signupContainer) signupContainer.style.display = 'none';
+        if (loginContainer) loginContainer.style.display = 'flex';
+    };
+})();
 // Hostel Management System JavaScript
 
 class HostelManagementSystem {

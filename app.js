@@ -154,9 +154,9 @@ app.get("/api/dashboard/stats", async (req, res) => {
     }
 });
 
-// Serve the main page
+// Serve sign-in as the start page
 app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "public", "index.html"));
+    res.sendFile(path.join(__dirname, "public", "signin.html"));
 });
 
 app.listen(port, () => {
