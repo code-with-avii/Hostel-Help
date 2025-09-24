@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign in • Hostel Help</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #111827cc;
+            --primary: #6366f1;
+            --primary-2: #8b5cf6;
+            --text: #e5e7eb;
+            --muted: #9ca3af;
+            --success: #22c55e;
+            --error: #ef4444;
+            --border: #1f2937;
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+            margin: 0;
+            font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+            color: var(--text);
+            background: radial-gradient(1200px 800px at 10% -10%, #1f2937, transparent 60%),
+                        radial-gradient(1200px 800px at 110% 10%, #0b1020, transparent 60%),
+                        linear-gradient(135deg, #0f172a 0%, #0b1020 100%);
+            display: grid;
+            place-items: center;
+            padding: 24px;
+        }
+        .auth-shell {
+            width: 100%;
+            max-width: 420px;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+            color: var(--text);
+        }
+        .brand-logo {
+            width: 36px; height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-2));
+            display: grid; place-items: center;
+            box-shadow: 0 8px 30px rgba(99, 102, 241, .35);
+            font-weight: 700;
+        }
+        .card {
+            background: linear-gradient(180deg, rgba(17,24,39,.9), rgba(17,24,39,.8));
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 22px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.03);
+        }
+        .tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            background: #0b1220;
+            border: 1px solid var(--border);
+            padding: 4px;
+            border-radius: 12px;
+            margin-bottom: 18px;
+            gap: 6px;
+        }
+        .tab-btn {
+            appearance: none;
+            border: 0;
+            background: transparent;
+            color: var(--muted);
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .tab-btn.active {
+            color: var(--text);
+            background: linear-gradient(135deg, rgba(99,102,241,.25), rgba(139,92,246,.25));
+            border: 1px solid rgba(99,102,241,.35);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 4px 20px rgba(99,102,241,.22);
+        }
+        .title {
+            margin: 0 0 6px 0;
+            font-size: 22px;
+            font-weight: 700;
+        }
+        .subtitle { margin: 0 0 16px 0; color: var(--muted); font-size: 14px; }
+        .field { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 13px; }
+        input[type="email"], input[type="password"] {
+            width: 100%;
+            padding: 12px 12px;
+            border-radius: 10px;
+            background: #0b1220;
+            color: var(--text);
+            border: 1px solid var(--border);
+            outline: none;
+        }
+        input:focus { border-color: rgba(99,102,241,.6); box-shadow: 0 0 0 4px rgba(99,102,241,.12); }
+        .btn {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 0;
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+            background: linear-gradient(135deg, var(--primary), var(--primary-2));
+            box-shadow: 0 8px 26px rgba(99,102,241,.35);
+        }
+        .hint { color: var(--muted); font-size: 12px; margin-top: 10px; text-align: center; }
+        .link { color: #c4b5fd; cursor: pointer; font-weight: 600; }
+        .message { font-size: 13px; margin-top: 10px; }
+        .message.error { color: var(--error); }
+        .message.success { color: var(--success); }
+        .hidden { display: none; }
+    </style>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' ry='18' fill='%236366f1'/><text x='50' y='62' font-size='58' font-family='Arial' font-weight='700' fill='white' text-anchor='middle'>H</text></svg>">
+</head>
+<body>
+    <div class="auth-shell">
+        <div class="brand">
+            <img src="logo.svg" alt="Hostel Help" class="brand-logo" style="width:36px;height:36px;border-radius:10px;box-shadow:0 8px 30px rgba(99,102,241,.35);" />
+            <div>
+                <div style="font-weight:700">Hostel Help</div>
+                <div style="color:var(--muted); font-size:12px;">Secure access to your dashboard</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="tabs">
+                <button id="tab-login" class="tab-btn active" type="button"><i class="fa fa-right-to-bracket"></i> Login</button>
+                <button id="tab-signup" class="tab-btn" type="button"><i class="fa fa-user-plus"></i> Sign up</button>
+            </div>
+
+            <div id="login-view">
+                <h2 class="title">Welcome back</h2>
+                <p class="subtitle">Sign in to continue to your dashboard</p>
+                <form id="login-form">
+                    <div class="field">
+                        <label for="login-email">Email</label>
+                        <input id="login-email" type="email" placeholder="you@example.com" required>
+                    </div>
+                    <div class="field">
+                        <label for="login-password">Password</label>
+                        <input id="login-password" type="password" placeholder="Enter your password" required>
+                    </div>
+                    <button class="btn" type="submit">Sign in</button>
+                    <div id="login-message" class="message"></div>
+                </form>
+                <p class="hint">Don't have an account? <span class="link" id="inline-to-signup">Create one</span></p>
+            </div>
+
+            <div id="signup-view" class="hidden">
+                <h2 class="title">Create account</h2>
+                <p class="subtitle">Get started with a free account</p>
+                <form id="signup-form">
+                    <div class="field">
+                        <label for="signup-email">Email</label>
+                        <input id="signup-email" type="email" placeholder="you@example.com" required>
+                    </div>
+                    <div class="field">
+                        <label for="signup-password">Password</label>
+                        <input id="signup-password" type="password" placeholder="Create a password" required>
+                    </div>
+                    <div class="field">
+                        <label for="signup-confirm">Confirm password</label>
+                        <input id="signup-confirm" type="password" placeholder="Re-enter password" required>
+                    </div>
+                    <button class="btn" type="submit">Sign up</button>
+                    <div id="signup-message" class="message"></div>
+                </form>
+                <p class="hint">Already have an account? <span class="link" id="inline-to-login">Sign in</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const loginView = document.getElementById('login-view');
+        const signupView = document.getElementById('signup-view');
+        const tabLogin = document.getElementById('tab-login');
+        const tabSignup = document.getElementById('tab-signup');
+        const loginForm = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
+        const loginMessage = document.getElementById('login-message');
+        const signupMessage = document.getElementById('signup-message');
+
+        function showLogin() {
+            loginView.classList.remove('hidden');
+            signupView.classList.add('hidden');
+            tabLogin.classList.add('active');
+            tabSignup.classList.remove('active');
+        }
+        function showSignup() {
+            signupView.classList.remove('hidden');
+            loginView.classList.add('hidden');
+            tabSignup.classList.add('active');
+            tabLogin.classList.remove('active');
+        }
+        tabLogin.addEventListener('click', showLogin);
+        tabSignup.addEventListener('click', showSignup);
+        document.getElementById('inline-to-signup').addEventListener('click', showSignup);
+        document.getElementById('inline-to-login').addEventListener('click', showLogin);
+
+        // Auto-redirect if already logged in
+        try {
+            const existing = localStorage.getItem('hms_current_user');
+            if (existing) {
+                window.location.href = 'index.html';
+            }
+        } catch (_) {}
+
+        // Auth: Login via backend
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value.trim().toLowerCase();
+            const password = document.getElementById('login-password').value.trim();
+            loginMessage.className = 'message';
+            loginMessage.textContent = 'Logging in...';
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    try {
+                        localStorage.setItem('hms_current_user', data.email);
+                        localStorage.setItem('hms_user_role', data.role || 'user');
+                        if (data.token) localStorage.setItem('hms_token', data.token);
+                    } catch (_) {}
+                    window.location.replace('index.html');
+                } else {
+                    const err = await res.json().catch(() => ({ error: 'Login failed' }));
+                    loginMessage.className = 'message error';
+                    loginMessage.textContent = err.error || 'Login failed';
+                }
+            } catch (err) {
+                loginMessage.className = 'message error';
+                loginMessage.textContent = 'Network error. Please try again.';
+            }
+        });
+
+        // Auth: Signup via backend
+        signupForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const email = document.getElementById('signup-email').value.trim().toLowerCase();
+            const pass = document.getElementById('signup-password').value;
+            const conf = document.getElementById('signup-confirm').value;
+            if (pass.length < 6) {
+                signupMessage.className = 'message error';
+                signupMessage.textContent = 'Password must be at least 6 characters.';
+                return;
+            }
+            if (pass !== conf) {
+                signupMessage.className = 'message error';
+                signupMessage.textContent = 'Passwords do not match.';
+                return;
+            }
+            signupMessage.className = 'message';
+            signupMessage.textContent = 'Creating account...';
+            try {
+                const res = await fetch('/api/auth/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password: pass })
+                });
+                if (res.ok) {
+                    signupMessage.className = 'message success';
+                    signupMessage.textContent = 'Account created! Refreshing...';
+                    // Refresh the page to reset forms and show Login tab
+                    setTimeout(() => { window.location.reload(); }, 200);
+                } else {
+                    const err = await res.json().catch(() => ({ error: 'Signup failed' }));
+                    signupMessage.className = 'message error';
+                    signupMessage.textContent = err.error || 'Signup failed';
+                }
+            } catch (err) {
+                signupMessage.className = 'message error';
+                signupMessage.textContent = 'Network error. Please try again.';
+            }
+        });
+    </script>
+</body>
+</html>
+
+

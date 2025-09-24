@@ -8,37 +8,72 @@
     const mainApp = document.getElementById('main-app');
     if (!loginForm) return; // No login form on this page
 
-    const message = document.getElementById('message');
+    const message = document.getElementById('login-message');
+
+    function showMsg(text, ok = false) {
+        if (!message) return;
+        message.style.color = ok ? 'green' : 'red';
+        message.textContent = (ok ? '✅ ' : '❌ ') + text;
+    }
+
+    function completeLogin() {
+        if (loginPage) loginPage.style.display = 'none';
+        if (mainApp) mainApp.style.display = '';
+    }
 
     loginForm.addEventListener('submit', function(e) {
         e.preventDefault();
+        const emailEl = document.getElementById('login-email');
+        const email = (emailEl ? emailEl.value : '').trim().toLowerCase();
         const password = document.getElementById('login-password').value;
+
+        // Admin default credentials
+        if (email === 'admin@hostel.com' && password === 'admin@123') {
+            try {
+                localStorage.setItem('hms_current_user', email);
+                localStorage.setItem('hms_user_role', 'admin');
+            } catch (_) {}
+            showMsg('Admin login successful!', true);
+            setTimeout(() => completeLogin(), 300);
+            return;
+        }
+
+        // Demo user password
         if (password === 'login-password') {
-            if (message) {
-                message.style.color = 'green';
-                message.textContent = '✅ Login successful!';
-            }
-            setTimeout(() => {
-                if (loginPage) loginPage.style.display = 'none';
-                if (mainApp) mainApp.style.display = '';
-            }, 300);
+            try {
+                if (email) localStorage.setItem('hms_current_user', email);
+                localStorage.setItem('hms_user_role', 'user');
+            } catch (_) {}
+            showMsg('Login successful!', true);
+            setTimeout(() => completeLogin(), 300);
         } else {
-            if (message) {
-                message.style.color = 'red';
-                message.textContent = '❌ Incorrect password.';
-            }
+            showMsg('Incorrect email or password.', false);
         }
     });
 
     // Fallback for inline onclick on the Login button
     window.login = function login() {
+        const emailEl = document.getElementById('login-email');
+        const email = (emailEl ? emailEl.value : '').trim().toLowerCase();
         const password = document.getElementById('login-password').value;
+
+        if (email === 'admin@hostel.com' && password === 'admin@123') {
+            try {
+                localStorage.setItem('hms_current_user', email);
+                localStorage.setItem('hms_user_role', 'admin');
+            } catch (_) {}
+            completeLogin();
+            return;
+        }
+
         if (password === 'login-password') {
-            if (loginPage) loginPage.style.display = 'none';
-            if (mainApp) mainApp.style.display = '';
+            try {
+                if (email) localStorage.setItem('hms_current_user', email);
+                localStorage.setItem('hms_user_role', 'user');
+            } catch (_) {}
+            completeLogin();
         } else if (message) {
-            message.style.color = 'red';
-            message.textContent = '❌ Incorrect password.';
+            showMsg('Incorrect email or password.', false);
         }
     };
 
@@ -65,11 +100,24 @@ class HostelManagementSystem {
     }
 
     async init() {
+        // Auth guard: redirect to signin if not logged in
+        const email = this.getCurrentUserEmail();
+        if (!email || email === 'guest@example.com') {
+            window.location.href = 'signin.html';
+            return;
+        }
         this.setupEventListeners();
         await this.loadComplaints();
         this.updateDashboard();
         this.updateComplaintsList();
         this.updateProfileStats();
+        this.initProfileForm();
+        this.initAdminNav();
+        // If admin is logged in, default to Admin view
+        if (this.isAdmin()) {
+            this.showSection('admin');
+        }
+        this.updateAuthUI();
     }
 
     setupEventListeners() {
@@ -98,6 +146,194 @@ class HostelManagementSystem {
             await this.loadComplaintsWithFilters();
             this.updateComplaintsList();
         });
+
+        // Admin filters
+        const adminStatus = document.getElementById('admin-status-filter');
+        const adminCategory = document.getElementById('admin-category-filter');
+        if (adminStatus && adminCategory) {
+            adminStatus.addEventListener('change', async () => {
+                await this.loadAdminComplaints();
+                this.updateAdminTable();
+            });
+            adminCategory.addEventListener('change', async () => {
+                await this.loadAdminComplaints();
+                this.updateAdminTable();
+            });
+        }
+    }
+
+    initAdminNav() {
+        const isAdminUser = this.isAdmin();
+        const navAdmin = document.getElementById('nav-admin');
+        if (navAdmin) {
+            navAdmin.style.display = isAdminUser ? '' : 'none';
+        }
+        if (isAdminUser) {
+            // Hide all non-admin navigation items
+            const hideSelectors = ['dashboard','complaints','resolved','profile'];
+            hideSelectors.forEach(sec => {
+                const navLink = document.querySelector(`[data-section="${sec}"]`);
+                if (navLink) navLink.style.display = 'none';
+                const sectionEl = document.getElementById(sec);
+                if (sectionEl) sectionEl.style.display = 'none';
+            });
+        }
+        
+        // Hide complaint submission for admin users
+        const complaintsNav = document.querySelector('[data-section="complaints"]');
+        if (complaintsNav && isAdminUser) {
+            complaintsNav.style.display = 'none';
+        }
+    }
+
+    getCurrentUserEmail() {
+        try {
+            return localStorage.getItem('hms_current_user') || 'guest@example.com';
+        } catch (_) {
+            return 'guest@example.com';
+        }
+    }
+
+    getCurrentUserRole() {
+        try {
+            return localStorage.getItem('hms_user_role') || 'user';
+        } catch (_) {
+            return 'user';
+        }
+    }
+
+    getToken() {
+        try {
+            return localStorage.getItem('hms_token') || '';
+        } catch (_) {
+            return '';
+        }
+    }
+
+    getProfileStorageKey() {
+        const email = this.getCurrentUserEmail();
+        return `hms_profile_${email.toLowerCase()}`;
+    }
+
+    loadProfile() {
+        try {
+            const raw = localStorage.getItem(this.getProfileStorageKey());
+            if (!raw) return { year: '', department: '', number: '' };
+            const data = JSON.parse(raw);
+            return {
+                year: data.year || '',
+                department: data.department || '',
+                number: data.number || ''
+            };
+        } catch (_) {
+            return { year: '', department: '', number: '' };
+        }
+    }
+
+    saveProfile(profile) {
+        try {
+            localStorage.setItem(this.getProfileStorageKey(), JSON.stringify(profile));
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    initProfileForm() {
+        const form = document.getElementById('profile-form');
+        if (!form) return;
+
+        const yearInput = document.getElementById('profile-year');
+        const deptInput = document.getElementById('profile-department');
+        const numInput = document.getElementById('profile-number');
+        const msg = document.getElementById('profile-message');
+        const info = document.getElementById('profile-info');
+        const quick = document.getElementById('profile-quick-details');
+        const editBtn = document.getElementById('edit-profile-btn');
+        const formContainer = document.getElementById('profile-form-container');
+
+        this.fetchProfileFromAPI().then((current) => {
+            yearInput.value = current.year || '';
+            deptInput.value = current.department || '';
+            numInput.value = current.number || '';
+            this.updateProfileDisplay(current);
+            this.updateQuickDetails(current);
+        });
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const profile = {
+                year: yearInput.value.trim(),
+                department: deptInput.value.trim(),
+                number: numInput.value.trim()
+            };
+            this.saveProfileToAPI(profile).then((ok) => {
+                if (msg) {
+                    msg.textContent = ok ? 'Profile saved.' : 'Failed to save profile.';
+                    msg.style.color = ok ? 'green' : 'red';
+                }
+                this.updateProfileDisplay(profile);
+                this.updateQuickDetails(profile);
+                if (ok && formContainer) {
+                    formContainer.style.display = 'none';
+                }
+            });
+        });
+
+        if (info && quick) {
+            info.addEventListener('click', () => {
+                const isHidden = quick.style.display === 'none' || quick.style.display === '';
+                quick.style.display = isHidden ? 'block' : 'none';
+            });
+        }
+
+        if (editBtn && formContainer) {
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const willShow = formContainer.style.display === 'none' || formContainer.style.display === '';
+                formContainer.style.display = willShow ? 'block' : 'none';
+            });
+        }
+    }
+
+    updateProfileDisplay(profile) {
+        const dYear = document.getElementById('display-year');
+        const dDept = document.getElementById('display-department');
+        const dNum = document.getElementById('display-number');
+        if (dYear) dYear.textContent = profile.year || '-';
+        if (dDept) dDept.textContent = profile.department || '-';
+        if (dNum) dNum.textContent = profile.number || '-';
+    }
+
+    async fetchProfileFromAPI() {
+        const email = this.getCurrentUserEmail();
+        try {
+            const res = await fetch(`/api/profile?email=${encodeURIComponent(email)}`);
+            if (res.ok) return await res.json();
+        } catch (_) {}
+        return { year: '', department: '', number: '' };
+    }
+
+    async saveProfileToAPI(profile) {
+        const email = this.getCurrentUserEmail();
+        try {
+            const res = await fetch('/api/profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...profile, email })
+            });
+            return res.ok;
+        } catch (_) {
+            return false;
+        }
+    }
+    updateQuickDetails(profile) {
+        const qYear = document.getElementById('qd-year');
+        const qDept = document.getElementById('qd-department');
+        const qNum = document.getElementById('qd-number');
+        if (qYear) qYear.textContent = profile.year || '-';
+        if (qDept) qDept.textContent = profile.department || '-';
+        if (qNum) qNum.textContent = profile.number || '-';
     }
 
     showSection(sectionName) {
@@ -125,10 +361,19 @@ class HostelManagementSystem {
             this.updateComplaintsList();
         } else if (sectionName === 'profile') {
             this.updateProfileStats();
+        } else if (sectionName === 'admin') {
+            this.ensureAdminVisibility();
+            this.loadAdminComplaints().then(() => this.updateAdminTable());
         }
     }
 
     async submitComplaint() {
+        // Check if user is admin - admins cannot create complaints
+        if (this.isAdmin()) {
+            this.showMessage('Admins cannot create complaints. Admins can only manage existing complaints.', 'error');
+            return;
+        }
+        
         const form = document.getElementById('complaint-form');
         const formData = new FormData(form);
         
@@ -143,10 +388,12 @@ class HostelManagementSystem {
         };
 
         try {
+            const token = this.getToken();
             const response = await fetch('/api/complaints', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                 },
                 body: JSON.stringify(complaintData)
             });
@@ -222,6 +469,7 @@ class HostelManagementSystem {
         const statusClass = complaint.status.replace(' ', '-');
         const priorityColor = this.getPriorityColor(complaint.priority);
         
+        const isAdmin = this.isAdmin();
         return `
             <div class="complaint-card ${statusClass}">
                 <div class="complaint-header">
@@ -268,6 +516,7 @@ class HostelManagementSystem {
                 </div>
                 ` : ''}
                 
+                ${isAdmin ? `
                 <div class="complaint-actions">
                     ${complaint.status === 'pending' ? `
                         <button class="btn btn-primary btn-small" onclick="hostelSystem.updateComplaintStatus('${complaint._id}', 'in-progress')">
@@ -281,20 +530,20 @@ class HostelManagementSystem {
                             <i class="fas fa-check"></i> Resolve
                         </button>
                     ` : ''}
-                    <button class="btn btn-secondary btn-small" onclick="hostelSystem.deleteComplaint('${complaint._id}')">
-                        <i class="fas fa-trash"></i> Delete
-                    </button>
                 </div>
+                ` : ''}
             </div>
         `;
     }
 
     async updateComplaintStatus(complaintId, newStatus) {
         try {
+            const token = this.getToken();
             const response = await fetch(`/api/complaints/${complaintId}/status`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                 },
                 body: JSON.stringify({ status: newStatus })
             });
@@ -322,10 +571,12 @@ class HostelManagementSystem {
         const resolution = prompt('Please enter the resolution details:');
         if (resolution && resolution.trim()) {
             try {
+                const token = this.getToken();
                 const response = await fetch(`/api/complaints/${complaintId}/resolve`, {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                     },
                     body: JSON.stringify({ resolution: resolution.trim() })
                 });
@@ -353,8 +604,12 @@ class HostelManagementSystem {
     async deleteComplaint(complaintId) {
         if (confirm('Are you sure you want to delete this complaint?')) {
             try {
+                const token = this.getToken();
                 const response = await fetch(`/api/complaints/${complaintId}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: {
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    }
                 });
 
                 if (response.ok) {
@@ -478,6 +733,78 @@ class HostelManagementSystem {
         } catch (error) {
             console.error('Error loading complaints with filters:', error);
         }
+    }
+
+    ensureAdminVisibility() {
+        const adminSection = document.getElementById('admin');
+        if (!adminSection) return;
+        const isAdminUser = this.isAdmin();
+        adminSection.style.display = isAdminUser ? '' : 'none';
+        if (!isAdminUser) {
+            this.showMessage('Admin access required.', 'error');
+            this.showSection('dashboard'); // Redirect to dashboard if not admin
+        }
+    }
+
+    async loadAdminComplaints() {
+        try {
+            const statusFilter = document.getElementById('admin-status-filter')?.value;
+            const categoryFilter = document.getElementById('admin-category-filter')?.value;
+            let url = '/api/admin/complaints?';
+            const params = new URLSearchParams();
+            if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
+            if (categoryFilter && categoryFilter !== 'all') params.append('category', categoryFilter);
+            url += params.toString();
+            const res = await fetch(url, {
+                headers: { 'x-user-email': this.getCurrentUserEmail() }
+            });
+            if (res.ok) {
+                this.adminComplaints = await res.json();
+            } else {
+                this.adminComplaints = [];
+            }
+        } catch (_) {
+            this.adminComplaints = [];
+        }
+    }
+
+    updateAdminTable() {
+        const container = document.getElementById('admin-complaints-table');
+        if (!container) return;
+        const data = this.adminComplaints || [];
+        if (!data.length) {
+            container.innerHTML = '<p class="no-data">No complaints found</p>';
+            return;
+        }
+        container.innerHTML = data.map(c => this.renderAdminRow(c)).join('');
+    }
+
+    renderAdminRow(c) {
+        const options = ['pending','in-progress','resolved'].map(s => `<option value="${s}" ${c.status===s?'selected':''}>${this.getStatusDisplayName(s)}</option>`).join('');
+        return `
+            <div class="complaint-card">
+                <div class="complaint-header">
+                    <div class="complaint-title">${this.getCategoryDisplayName(c.category)} • Room ${c.roomNumber}</div>
+                    <div class="status-badge ${c.status.replace(' ','-')}">${this.getStatusDisplayName(c.status)}</div>
+                </div>
+                <div class="complaint-details">
+                    <div class="detail-item"><div class="detail-label">Student</div><div class="detail-value">${c.studentName}</div></div>
+                    <div class="detail-item"><div class="detail-label">Contact</div><div class="detail-value">${c.contactNumber}</div></div>
+                    <div class="detail-item"><div class="detail-label">Submitted</div><div class="detail-value">${this.formatDate(c.submittedDate)}</div></div>
+                </div>
+                <div class="complaint-description"><strong>Description:</strong> ${c.description}</div>
+                <div class="complaint-actions" style="gap:8px; display:flex; align-items:center; flex-wrap:wrap;">
+                    <label for="status-${c._id}">Status:</label>
+                    <select id="status-${c._id}" onchange="hostelSystem.adminUpdateStatus('${c._id}', this.value)">${options}</select>
+                </div>
+            </div>
+        `;
+    }
+
+    async adminUpdateStatus(id, status) {
+        await this.updateComplaintStatus(id, status);
+        await this.loadAdminComplaints();
+        this.updateAdminTable();
     }
 }
 

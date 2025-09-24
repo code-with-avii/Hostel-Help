@@ -194,5 +194,3 @@ For issues or questions:
 This project is open source and available under the MIT License.
 
 ---
-
-**Note**: This is a frontend-only application that runs entirely in the browser. All data is stored locally using browser localStorage and will persist between sessions. No server or database setup is required.

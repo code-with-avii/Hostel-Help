@@ -3,50 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hostel Management System</title>
+    <title>Hostel Help</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    <!-- Login Page -->
-    <div id="login-page" class="login-page">
-        <div class="container">
-            <header class="header">
-                <div class="logo">
-                    <i class="fas fa-user-lock"></i>
-                    <h1>Login</h1>
-                </div>
-            </header>
-            <main class="main-content">
-                <section class="section active">
-                    <div class="complaint-form-container">
-                        <form id="login-form">
-                            <div class="form-group">
-                                <label for="login-email">Email</label>
-                                <input type="email" id="login-email" name="email" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="login-password">Password</label>
-                                <input type="password" id="login-password" name="password" required>
-                            </div>
-                            <div class="form-actions">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-sign-in-alt"></i> Login
-                                </button>
-                            </div>
-                            <div id="login-message" class="no-data"></div>
-                        </form>
-                    </div>
-                </section>
-            </main>
-        </div>
+    <!-- Unauthenticated Notice -->
+    <div id="unauthenticated" style="display:none; padding:14px; margin:12px; border:1px solid #e5e7eb; border-radius:8px; background:#fff3cd; color:#8a6d3b;">
+        You are not logged in. <a href="signin.html" style="font-weight:600; text-decoration:underline; color:#8a6d3b;">Go to Login</a>. Redirecting...
     </div>
-    <div id="main-app" class="container" style="display:none;">
+    <div id="main-app" class="container">
         <!-- Header -->
         <header class="header">
             <div class="logo">
-                <i class="fas fa-building"></i>
-                <h1>Hostel Management System</h1>
+                <img src="logo.svg" alt="Hostel Help" style="width:34px; height:34px; border-radius:8px; display:inline-block; vertical-align:middle; margin-right:8px;" />
+                <h1 style="display:inline-block; vertical-align:middle;">Hostel Help</h1>
             </div>
             <nav class="nav">
                 <ul>
@@ -62,8 +33,17 @@
                     <li><a href="#profile" class="nav-link" data-section="profile">
                         <i class="fas fa-user"></i> Profile
                     </a></li>
+                    <li id="nav-admin" style="display:none;"><a href="#admin" class="nav-link" data-section="admin">
+                        <i class="fas fa-user-shield"></i> Admin
+                    </a></li>
                 </ul>
             </nav>
+            <div class="auth-controls" style="display:flex; align-items:center; gap:10px; margin-left:auto;">
+                <span id="current-user-label" class="no-data"></span>
+                <button id="logout-btn" class="btn btn-small" style="border:1px solid #ef4444;color:#ef4444;background:transparent;">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
         </header>
 
         <!-- Main Content -->
@@ -72,7 +52,7 @@
             <section id="dashboard" class="section active">
                 <div class="section-header">
                     <h2><i class="fas fa-tachometer-alt"></i> Dashboard</h2>
-                    <p>Welcome to your hostel management dashboard</p>
+                    <p>Welcome to Hostel Help Dashboard</p>
                 </div>
                 
                 <div class="stats-grid">
@@ -136,6 +116,27 @@
                                 <i class="fas fa-list"></i>
                                 View All Issues
                             </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Dashboard Footer (Contacts) -->
+                <div class="dashboard-contacts" style="margin-top:20px; padding:14px 16px; border:1px solid #e5e7eb; border-radius:10px; background:#f9fafb; color:#374151;">
+                    <div style="display:flex; flex-wrap:wrap; gap:18px; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-phone-alt"></i>
+                            <span><strong>Emergency:</strong> <a href="tel:+911122334455" style="color:inherit; text-decoration:underline;">+91 11223 34455</a></span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-envelope"></i>
+                            <span><strong>Hostel Email:</strong> <a href="mailto:hostel.office@example.com" style="color:inherit; text-decoration:underline;">hostel.office@example.com</a></span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-user-shield"></i>
+                            <span><strong>Warden:</strong> <a href="tel:+919876543210" style="color:inherit; text-decoration:underline;">+91 98765 43210</a></span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-university"></i>
+                            <span><strong>College Email:</strong> <a href="mailto:info.college@example.com" style="color:inherit; text-decoration:underline;">info.college@example.com</a></span>
                         </div>
                     </div>
                 </div>
@@ -209,6 +210,45 @@
                 </div>
             </section>
 
+            <!-- Admin Section -->
+            <section id="admin" class="section">
+                <div class="section-header">
+                    <h2><i class="fas fa-user-shield"></i> Admin</h2>
+                    <p>Manage all complaints</p>
+                </div>
+                <div id="admin-role-banner" class="no-data" style="display:none; margin-bottom:10px;"></div>
+                <div>
+                    <div class="filter-controls">
+                        <div class="filter-group">
+                            <label for="admin-status-filter">Filter by Status:</label>
+                            <select id="admin-status-filter">
+                                <option value="all">All Issues</option>
+                                <option value="pending">Pending</option>
+                                <option value="in-progress">In Progress</option>
+                                <option value="resolved">Resolved</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="admin-category-filter">Filter by Category:</label>
+                            <select id="admin-category-filter">
+                                <option value="all">All Categories</option>
+                                <option value="electrical">Electrical</option>
+                                <option value="plumbing">Plumbing</option>
+                                <option value="wifi">WiFi/Internet</option>
+                                <option value="cleaning">Cleaning</option>
+                                <option value="security">Security</option>
+                                <option value="noise">Noise</option>
+                                <option value="furniture">Furniture</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="admin-complaints-table" class="complaints-list">
+                        <p class="no-data">No complaints found</p>
+                    </div>
+                </div>
+            </section>
+
             <!-- Resolved Issues Section -->
             <section id="resolved" class="section">
                 <div class="section-header">
@@ -256,13 +296,21 @@
                 </div>
                 
                 <div class="profile-container">
-                    <div class="profile-info">
+                    <div class="profile-info" id="profile-info" style="cursor:pointer;">
                         <div class="profile-avatar">
                             <i class="fas fa-user-circle"></i>
                         </div>
                         <div class="profile-details">
-                            <h3>Student Profile</h3>
+                            <h3 id="profile-title">Student Profile</h3>
                             <p>Manage your personal information and preferences</p>
+                            <div id="profile-quick-details" style="display:none; margin-top:8px;">
+                                <p style="margin:2px 0;"><strong>Year:</strong> <span id="qd-year">-</span></p>
+                                <p style="margin:2px 0;"><strong>Department:</strong> <span id="qd-department">-</span></p>
+                                <p style="margin:2px 0;"><strong>Mobile No.:</strong> <span id="qd-number">-</span></p>
+                            </div>
+                            <div style="margin-top:10px;">
+                                <button id="edit-profile-btn" class="btn btn-primary"><i class="fas fa-edit"></i> Edit Profile</button>
+                            </div>
                         </div>
                     </div>
                     
@@ -280,6 +328,33 @@
                             <span class="stat-value">2024</span>
                         </div>
                     </div>
+
+                    <div class="profile-form" id="profile-form-container" style="margin-top:20px; display:none;">
+                        <h3 style="margin-bottom:10px;">Edit Profile</h3>
+                        <form id="profile-form">
+                            <div class="form-group">
+                                <label for="profile-year">College Year</label>
+                                <input type="text" id="profile-year" name="year" placeholder="e.g., 1st, 2nd, 3rd, 4th">
+                            </div>
+                            <div class="form-group">
+                                <label for="profile-department">Department</label>
+                                <input type="text" id="profile-department" name="department" placeholder="e.g., CS, ECE, IT, MCE">
+                            </div>
+                            <div class="form-group">
+                                <label for="profile-number">Number</label>
+                                <input type="tel" id="profile-number" name="number" placeholder="e.g., 9876543210">
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Profile</button>
+                            </div>
+                            <div id="profile-message" class="no-data"></div>
+                        </form>
+                        <div style="margin-top:16px;">
+                            <p><strong>Year:</strong> <span id="display-year">-</span></p>
+                            <p><strong>Department:</strong> <span id="display-department">-</span></p>
+                            <p><strong>Mobile No.:</strong> <span id="display-number">-</span></p>
+                        </div>
+                    </div>
                 </div>
             </section>
         </main>
@@ -289,5 +364,22 @@
     <div id="message-container" class="message-container"></div>
 
     <script src="script.js"></script>
+    <script>
+      // Fallback logout wiring in case main script handler isn't attached
+      document.addEventListener('DOMContentLoaded', function() {
+        var logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn && !logoutBtn._hmsBound) {
+          logoutBtn._hmsBound = true;
+          logoutBtn.addEventListener('click', function() {
+            try {
+              localStorage.removeItem('hms_current_user');
+              localStorage.removeItem('hms_user_role');
+              localStorage.removeItem('hms_token');
+            } catch (e) {}
+            window.location.href = 'signin.html';
+          });
+        }
+      });
+    </script>
 </body>
 </html>

@@ -3,12 +3,16 @@ import path from "path";
 import { fileURLToPath } from "url";
 import mongoose from "mongoose";
 import Complaint from "./models/Complaint.js";
+import UserProfile from "./models/UserProfile.js";
+import User from "./models/User.js";
+import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import connectDB from "./db/connectDB.js";
+import { signToken, verifyToken } from "./utils/jwt.js";
 dotenv.config();
 
 const app = express();
-const port= 4000;
+const port = process.env.MY_PORT;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,6 +26,73 @@ app.use(express.static(path.join(__dirname, "public")));
 connectDB();
 
 // API Routes
+
+// Helper: extract user from Authorization bearer token, fallback to x-user-email
+function getUserFromReq(req) {
+    const auth = req.headers['authorization'] || '';
+    if (auth.startsWith('Bearer ')) {
+        const token = auth.slice(7);
+        const decoded = verifyToken(token);
+        if (decoded && decoded.email) {
+            return { email: (decoded.email || '').toLowerCase(), role: decoded.role || 'user' };
+        }
+    }
+    const emailHeader = (req.headers['x-user-email'] || '').toString().toLowerCase();
+    return { email: emailHeader, role: emailHeader ? (emailHeader === (process.env.admin_email || '').toLowerCase() ? 'admin' : 'user') : 'guest' };
+}
+
+// Auth: Signup
+app.post('/api/auth/signup', async (req, res) => {
+    try {
+        const { email, password } = req.body || {};
+        const adminEmail = (process.env.admin_email || '').toLowerCase();
+        if (!email || !password) return res.status(400).json({ error: 'email and password are required' });
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) return res.status(400).json({ error: 'invalid email' });
+        if (password.length < 6) return res.status(400).json({ error: 'password too short (min 6)' });
+        const normalized = email.toLowerCase();
+        if (normalized === adminEmail) {
+            return res.status(400).json({ error: 'Cannot create admin via signup' });
+        }
+        const existing = await User.findOne({ email: normalized });
+        if (existing) return res.status(409).json({ error: 'User already exists' });
+        const passwordHash = await bcrypt.hash(password, 10);
+        const user = await User.create({ email: normalized, passwordHash });
+        return res.status(201).json({ email: user.email });
+    } catch (err) {
+        console.error('Signup error:', err);
+        return res.status(500).json({ error: 'Failed to signup' });
+    }
+});
+
+// Auth: Login
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { email, password } = req.body || {};
+        if (!email || !password) return res.status(400).json({ error: 'email and password are required' });
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) return res.status(400).json({ error: 'invalid email' });
+        const normalized = email.toLowerCase();
+        const adminEmail = (process.env.admin_email || '').toLowerCase();
+        const adminPassword = process.env.admin_password || '';
+        if (normalized === adminEmail) {
+            if (password === adminPassword) {
+                const token = signToken({ email: normalized, role: 'admin' });
+                return res.status(200).json({ email: normalized, role: 'admin', token });
+            }
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+        const user = await User.findOne({ email: normalized });
+        if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+        const ok = await bcrypt.compare(password, user.passwordHash);
+        if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+        const token = signToken({ email: user.email, role: 'user' });
+        return res.status(200).json({ email: user.email, role: 'user', token });
+    } catch (err) {
+        console.error('Login error:', err);
+        return res.status(500).json({ error: 'Failed to login' });
+    }
+});
 
 // Get all complaints
 app.get("/api/complaints", async (req, res) => {
@@ -45,6 +116,25 @@ app.get("/api/complaints", async (req, res) => {
     }
 });
 
+// Admin: Get all complaints (admin only)
+app.get("/api/admin/complaints", async (req, res) => {
+    try {
+        const user = getUserFromReq(req);
+        if ((user.email || '') !== (process.env.admin_email || '').toLowerCase()) {
+            return res.status(403).json({ error: 'Admin privileges required' });
+        }
+        const { status, category } = req.query;
+        const filter = {};
+        if (status && status !== 'all') filter.status = status;
+        if (category && category !== 'all') filter.category = category;
+        const complaints = await Complaint.find(filter).sort({ submittedDate: -1 });
+        res.json(complaints);
+    } catch (error) {
+        console.error("Error fetching admin complaints:", error);
+        res.status(500).json({ error: "Failed to fetch complaints" });
+    }
+});
+
 // Get complaint by ID
 app.get("/api/complaints/:id", async (req, res) => {
     try {
@@ -62,6 +152,12 @@ app.get("/api/complaints/:id", async (req, res) => {
 // Create new complaint
 app.post("/api/complaints", async (req, res) => {
     try {
+        // Check if user is admin - admins cannot create complaints
+        const user = getUserFromReq(req);
+        if ((user.email || '') === (process.env.admin_email || '').toLowerCase()) {
+            return res.status(403).json({ error: 'Admins cannot create complaints. Admins can only manage existing complaints.' });
+        }
+        
         const complaint = new Complaint(req.body);
         await complaint.save();
         res.status(201).json(complaint);
@@ -74,6 +170,10 @@ app.post("/api/complaints", async (req, res) => {
 // Update complaint status
 app.patch("/api/complaints/:id/status", async (req, res) => {
     try {
+        const user = getUserFromReq(req);
+        if ((user.email || '') !== (process.env.admin_email || '').toLowerCase()) {
+            return res.status(403).json({ error: 'Admin privileges required' });
+        }
         const { status } = req.body;
         const complaint = await Complaint.findByIdAndUpdate(
             req.params.id,
@@ -95,6 +195,10 @@ app.patch("/api/complaints/:id/status", async (req, res) => {
 // Resolve complaint
 app.patch("/api/complaints/:id/resolve", async (req, res) => {
     try {
+        const user = getUserFromReq(req);
+        if ((user.email || '') !== (process.env.admin_email || '').toLowerCase()) {
+            return res.status(403).json({ error: 'Admin privileges required' });
+        }
         const { resolution } = req.body;
         const complaint = await Complaint.findByIdAndUpdate(
             req.params.id,
@@ -117,18 +221,9 @@ app.patch("/api/complaints/:id/resolve", async (req, res) => {
     }
 });
 
-// Delete complaint
+// Delete complaint (disabled). Admin can only change status, not delete.
 app.delete("/api/complaints/:id", async (req, res) => {
-    try {
-        const complaint = await Complaint.findByIdAndDelete(req.params.id);
-        if (!complaint) {
-            return res.status(404).json({ error: "Complaint not found" });
-        }
-        res.json({ message: "Complaint deleted successfully" });
-    } catch (error) {
-        console.error("Error deleting complaint:", error);
-        res.status(500).json({ error: "Failed to delete complaint" });
-    }
+    return res.status(403).json({ error: "Deleting complaints is disabled. Admins can only update status." });
 });
 
 // Get dashboard statistics
@@ -151,6 +246,36 @@ app.get("/api/dashboard/stats", async (req, res) => {
     } catch (error) {
         console.error("Error fetching dashboard stats:", error);
         res.status(500).json({ error: "Failed to fetch dashboard statistics" });
+    }
+});
+
+// User Profiles
+app.get('/api/profile', async (req, res) => {
+    try {
+        const email = (req.query.email || '').toLowerCase();
+        if (!email) return res.status(400).json({ error: 'email query required' });
+        const profile = await UserProfile.findOne({ email });
+        res.json(profile || { email, year: '', department: '', number: '' });
+    } catch (err) {
+        console.error('Error fetching profile:', err);
+        res.status(500).json({ error: 'Failed to fetch profile' });
+    }
+});
+
+// Save/Update User Profile
+app.post('/api/profile', async (req, res) => {
+    try {
+        const { email, year, department, number } = req.body || {};
+        if (!email) return res.status(400).json({ error: 'email is required' });
+        const saved = await UserProfile.findOneAndUpdate(
+            { email: email.toLowerCase() },
+            { $set: { year: year || '', department: department || '', number: number || '' } },
+            { upsert: true, new: true }
+        );
+        res.status(200).json(saved);
+    } catch (err) {
+        console.error('Error saving profile:', err);
+        res.status(500).json({ error: 'Failed to save profile' });
     }
 });
 
