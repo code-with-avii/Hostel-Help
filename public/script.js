@@ -131,10 +131,17 @@ class HostelManagementSystem {
         });
 
         // Complaint form
-        document.getElementById('complaint-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.submitComplaint();
-        });
+        const complaintForm = document.getElementById('complaint-form');
+        if (complaintForm) {
+            complaintForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                console.log('[HMS] complaint-form submit event');
+                this.submitComplaint();
+            });
+            console.log('[HMS] Bound submit handler to #complaint-form');
+        } else {
+            console.warn('[HMS] #complaint-form not found at setupEventListeners');
+        }
 
         // Filters
         document.getElementById('status-filter').addEventListener('change', async () => {
@@ -184,6 +191,27 @@ class HostelManagementSystem {
         if (complaintsNav && isAdminUser) {
             complaintsNav.style.display = 'none';
         }
+
+        // Additionally, if admin lands on the complaints section directly, disable form and show banner
+        if (isAdminUser) {
+            const complaintForm = document.getElementById('complaint-form');
+            if (complaintForm) {
+                const submitBtn = complaintForm.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.title = 'Admins cannot submit complaints. Use the Admin tab to manage complaints.';
+                }
+                const container = complaintForm.closest('.complaint-form-container') || complaintForm.parentElement;
+                if (container && !container.querySelector('#admin-no-submit-banner')) {
+                    const banner = document.createElement('div');
+                    banner.id = 'admin-no-submit-banner';
+                    banner.className = 'no-data';
+                    banner.style.marginBottom = '10px';
+                    banner.textContent = 'Admins cannot create complaints. Please use the Admin section to manage complaints.';
+                    container.prepend(banner);
+                }
+            }
+        }
     }
 
     getCurrentUserEmail() {
@@ -200,6 +228,11 @@ class HostelManagementSystem {
         } catch (_) {
             return 'user';
         }
+    }
+
+    isAdmin() {
+        // Determine admin role from stored role value
+        return (this.getCurrentUserRole() === 'admin');
     }
 
     getToken() {
@@ -368,6 +401,7 @@ class HostelManagementSystem {
     }
 
     async submitComplaint() {
+        console.log('[HMS] submitComplaint() invoked');
         // Check if user is admin - admins cannot create complaints
         if (this.isAdmin()) {
             this.showMessage('Admins cannot create complaints. Admins can only manage existing complaints.', 'error');
@@ -377,13 +411,25 @@ class HostelManagementSystem {
         const form = document.getElementById('complaint-form');
         const formData = new FormData(form);
         
+        // Basic phone validation (10 digits)
+        const rawContact = (formData.get('contactNumber') || '').toString().trim();
+        const phoneOk = /^[0-9]{10}$/.test(rawContact);
+        if (!phoneOk) {
+            this.showMessage('Please enter a valid 10-digit contact number.', 'error');
+            return;
+        }
+
+        // Confirmation before submit
+        const confirmed = window.confirm('Submit this complaint?');
+        if (!confirmed) return;
+        
         const complaintData = {
             studentName: formData.get('studentName'),
             roomNumber: formData.get('roomNumber'),
             category: formData.get('category'),
             priority: formData.get('priority'),
             description: formData.get('description'),
-            contactNumber: formData.get('contactNumber'),
+            contactNumber: rawContact,
             status: 'pending'
         };
 
@@ -406,8 +452,11 @@ class HostelManagementSystem {
                 
                 // Update dashboard and lists
                 this.updateDashboard();
-                this.updateComplaintsList();
                 this.updateProfileStats();
+                // Navigate to All Issues and reload from server so the new complaint is visible there
+                this.showSection('resolved');
+                await this.loadComplaintsWithFilters();
+                this.updateComplaintsList();
             } else {
                 const error = await response.json();
                 this.showMessage(`Error: ${error.error}`, 'error');
@@ -490,10 +539,12 @@ class HostelManagementSystem {
                         <div class="detail-label">Priority</div>
                         <div class="detail-value" style="color: ${priorityColor}">${complaint.priority.toUpperCase()}</div>
                     </div>
+                    ${isAdmin && complaint.contactNumber ? `
                     <div class="detail-item">
                         <div class="detail-label">Contact</div>
                         <div class="detail-value">${complaint.contactNumber}</div>
                     </div>
+                    ` : ''}
                     <div class="detail-item">
                         <div class="detail-label">Submitted</div>
                         <div class="detail-value">${this.formatDate(complaint.submittedDate)}</div>

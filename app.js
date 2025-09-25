@@ -107,8 +107,12 @@ app.get("/api/complaints", async (req, res) => {
         if (category && category !== 'all') {
             filter.category = category;
         }
-        
-        const complaints = await Complaint.find(filter).sort({ submittedDate: -1 });
+        // Hide contactNumber for non-admin users
+        const user = getUserFromReq(req);
+        const isAdmin = ((user.email || '') === (process.env.admin_email || '').toLowerCase());
+        const projection = isAdmin ? {} : { contactNumber: 0 };
+
+        const complaints = await Complaint.find(filter, projection).sort({ submittedDate: -1 });
         res.json(complaints);
     } catch (error) {
         console.error("Error fetching complaints:", error);
@@ -138,7 +142,12 @@ app.get("/api/admin/complaints", async (req, res) => {
 // Get complaint by ID
 app.get("/api/complaints/:id", async (req, res) => {
     try {
-        const complaint = await Complaint.findById(req.params.id);
+        // Hide contactNumber for non-admin users
+        const user = getUserFromReq(req);
+        const isAdmin = ((user.email || '') === (process.env.admin_email || '').toLowerCase());
+        const projection = isAdmin ? {} : { contactNumber: 0 };
+
+        const complaint = await Complaint.findById(req.params.id).select(projection);
         if (!complaint) {
             return res.status(404).json({ error: "Complaint not found" });
         }
@@ -157,13 +166,47 @@ app.post("/api/complaints", async (req, res) => {
         if ((user.email || '') === (process.env.admin_email || '').toLowerCase()) {
             return res.status(403).json({ error: 'Admins cannot create complaints. Admins can only manage existing complaints.' });
         }
-        
-        const complaint = new Complaint(req.body);
+        // Basic payload validation with helpful errors
+        const {
+            studentName,
+            roomNumber,
+            category,
+            priority,
+            description,
+            contactNumber
+        } = req.body || {};
+
+        const errors = [];
+        if (!studentName || typeof studentName !== 'string' || !studentName.trim()) errors.push('studentName is required');
+        if (!roomNumber || typeof roomNumber !== 'string' || !roomNumber.trim()) errors.push('roomNumber is required');
+        const allowedCategories = ['electrical','plumbing','wifi','cleaning','security','noise','furniture','other'];
+        if (!category || !allowedCategories.includes(String(category))) errors.push('category is invalid');
+        const allowedPriorities = ['low','medium','high','urgent'];
+        if (!priority || !allowedPriorities.includes(String(priority))) errors.push('priority is invalid');
+        if (!description || typeof description !== 'string' || !description.trim()) errors.push('description is required');
+        if (!contactNumber || typeof contactNumber !== 'string' || !contactNumber.trim()) errors.push('contactNumber is required');
+
+        if (errors.length) {
+            return res.status(400).json({ error: errors.join(', ') });
+        }
+
+        const complaint = new Complaint({
+            studentName: String(studentName).trim(),
+            roomNumber: String(roomNumber).trim(),
+            category,
+            priority,
+            description: String(description).trim(),
+            contactNumber: String(contactNumber).trim(),
+            status: 'pending'
+        });
         await complaint.save();
         res.status(201).json(complaint);
     } catch (error) {
         console.error("Error creating complaint:", error);
-        res.status(400).json({ error: "Failed to create complaint" });
+        if (error && error.name === 'ValidationError') {
+            return res.status(400).json({ error: error.message });
+        }
+        res.status(400).json({ error: error?.message || "Failed to create complaint" });
     }
 });
 
