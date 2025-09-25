@@ -298,7 +298,22 @@ app.get('/api/profile', async (req, res) => {
         const email = (req.query.email || '').toLowerCase();
         if (!email) return res.status(400).json({ error: 'email query required' });
         const profile = await UserProfile.findOne({ email });
-        res.json(profile || { email, year: '', department: '', number: '' });
+        // memberSinceYear: derive from User.createdAt if exists
+        let memberSinceYear = '';
+        try {
+            const user = await User.findOne({ email }).select({ createdAt: 1 });
+            if (user && user.createdAt) {
+                memberSinceYear = new Date(user.createdAt).getFullYear().toString();
+            }
+        } catch (_) {}
+        const resp = profile ? {
+            email,
+            year: profile.year || '',
+            department: profile.department || '',
+            number: profile.number || '',
+            memberSinceYear
+        } : { email, year: '', department: '', number: '', memberSinceYear };
+        res.json(resp);
     } catch (err) {
         console.error('Error fetching profile:', err);
         res.status(500).json({ error: 'Failed to fetch profile' });

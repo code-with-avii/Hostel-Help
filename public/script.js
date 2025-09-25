@@ -289,6 +289,7 @@ class HostelManagementSystem {
             yearInput.value = current.year || '';
             deptInput.value = current.department || '';
             numInput.value = current.number || '';
+            this.profileMeta = { memberSinceYear: current.memberSinceYear || '' };
             this.updateProfileDisplay(current);
             this.updateQuickDetails(current);
         });
@@ -333,9 +334,11 @@ class HostelManagementSystem {
         const dYear = document.getElementById('display-year');
         const dDept = document.getElementById('display-department');
         const dNum = document.getElementById('display-number');
+        const dSince = document.getElementById('profile-member-since');
         if (dYear) dYear.textContent = profile.year || '-';
         if (dDept) dDept.textContent = profile.department || '-';
         if (dNum) dNum.textContent = profile.number || '-';
+        if (dSince) dSince.textContent = (this.profileMeta?.memberSinceYear || '-');
     }
 
     async fetchProfileFromAPI() {
