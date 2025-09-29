@@ -24,6 +24,7 @@
     loginForm.addEventListener('submit', function(e) {
         e.preventDefault();
         const emailEl = document.getElementById('login-email');
+        
         const email = (emailEl ? emailEl.value : '').trim().toLowerCase();
         const password = document.getElementById('login-password').value;
 
@@ -39,16 +40,16 @@
         }
 
         // Demo user password
-        if (password === 'login-password') {
-            try {
-                if (email) localStorage.setItem('hms_current_user', email);
-                localStorage.setItem('hms_user_role', 'user');
-            } catch (_) {}
-            showMsg('Login successful!', true);
-            setTimeout(() => completeLogin(), 300);
-        } else {
-            showMsg('Incorrect email or password.', false);
-        }
+        // if (password === 'login-password') {
+        //     try {
+        //         if (email) localStorage.setItem('hms_current_user', email);
+        //         localStorage.setItem('hms_user_role', 'user');
+        //     } catch (_) {}
+        //     showMsg('Login successful!', true);
+        //     setTimeout(() => completeLogin(), 300);
+        // } else {
+        //     showMsg('Incorrect email or password.', false);
+        // }
     });
 
     // Fallback for inline onclick on the Login button
@@ -96,6 +97,7 @@ class HostelManagementSystem {
     constructor() {
         this.complaints = [];
         this.currentSection = 'dashboard';
+        this.displayFirstName = '';
         this.init();
     }
 
@@ -118,6 +120,48 @@ class HostelManagementSystem {
             this.showSection('admin');
         }
         this.updateAuthUI();
+    }
+
+    updateAuthUI() {
+        // Update current user label and bind logout button
+        const email = this.getCurrentUserEmail();
+        const role = this.getCurrentUserRole();
+
+        const userLabel = document.getElementById('current-user-label');
+        if (userLabel) {
+            if (email && email !== 'guest@example.com') {
+                const roleDisplay = role === 'admin' ? 'Admin' : 'User';
+                userLabel.textContent = `${email} • ${roleDisplay}`;
+                userLabel.classList.remove('no-data');
+            } else {
+                userLabel.textContent = '';
+                userLabel.classList.add('no-data');
+            }
+        }
+
+        // Avatar removed per request
+
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn && !logoutBtn._hmsBound) {
+            logoutBtn._hmsBound = true;
+            logoutBtn.addEventListener('click', () => {
+                try {
+                    localStorage.removeItem('hms_current_user');
+                    localStorage.removeItem('hms_user_role');
+                    localStorage.removeItem('hms_token');
+                } catch (_) {}
+                window.location.href = 'signin.html';
+            });
+        }
+
+        // Optional: toggle unauthenticated banner if present
+        const unauth = document.getElementById('unauthenticated');
+        const mainApp = document.getElementById('main-app');
+        if (unauth && mainApp) {
+            const loggedIn = !!email && email !== 'guest@example.com';
+            unauth.style.display = loggedIn ? 'none' : '';
+            mainApp.style.display = loggedIn ? '' : 'none';
+        }
     }
 
     setupEventListeners() {
@@ -153,6 +197,14 @@ class HostelManagementSystem {
             await this.loadComplaintsWithFilters();
             this.updateComplaintsList();
         });
+
+        const dateFilterEl = document.getElementById('date-filter');
+        if (dateFilterEl) {
+            dateFilterEl.addEventListener('change', async () => {
+                await this.loadComplaintsWithFilters();
+                this.updateComplaintsList();
+            });
+        }
 
         // Admin filters
         const adminStatus = document.getElementById('admin-status-filter');
@@ -290,6 +342,13 @@ class HostelManagementSystem {
             deptInput.value = current.department || '';
             numInput.value = current.number || '';
             this.profileMeta = { memberSinceYear: current.memberSinceYear || '' };
+            // Snapshot for cancel
+            this._lastLoadedProfile = {
+                year: yearInput.value,
+                department: deptInput.value,
+                number: numInput.value,
+            };
+            this.updateAuthUI();
             this.updateProfileDisplay(current);
             this.updateQuickDetails(current);
         });
@@ -310,9 +369,26 @@ class HostelManagementSystem {
                 this.updateQuickDetails(profile);
                 if (ok && formContainer) {
                     formContainer.style.display = 'none';
+                    // Update snapshot after successful save
+                    this._lastLoadedProfile = { ...profile };
                 }
             });
         });
+
+        // Cancel button
+        const cancelBtn = document.getElementById('cancel-edit-profile-btn');
+        if (cancelBtn && !cancelBtn._hmsBound) {
+            cancelBtn._hmsBound = true;
+            cancelBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const snap = this._lastLoadedProfile || { year: '', department: '', number: '' };
+                yearInput.value = snap.year || '';
+                deptInput.value = snap.department || '';
+                numInput.value = snap.number || '';
+                if (formContainer) formContainer.style.display = 'none';
+                if (msg) { msg.textContent = ''; msg.removeAttribute('style'); }
+            });
+        }
 
         if (info && quick) {
             info.addEventListener('click', () => {
@@ -351,11 +427,13 @@ class HostelManagementSystem {
     }
 
     async saveProfileToAPI(profile) {
-        const email = this.getCurrentUserEmail();
         try {
+            const email = this.getCurrentUserEmail();
             const res = await fetch('/api/profile', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({ ...profile, email })
             });
             return res.ok;
@@ -489,7 +567,7 @@ class HostelManagementSystem {
     updateRecentComplaints() {
         const recentComplaintsContainer = document.getElementById('recent-complaints-list');
         const recentComplaints = this.complaints
-            .sort((a, b) => new Date(b.submittedDate) - new Date(a.submittedDate))
+            .sort((a, b) => new Date(a.submittedDate) - new Date(b.submittedDate))
             .slice(0, 5);
 
         if (recentComplaints.length === 0) {
@@ -692,6 +770,14 @@ class HostelManagementSystem {
     }
 
     // Utility functions
+    getStatusDisplayName(status) {
+        const map = {
+            'pending': 'Pending',
+            'in-progress': 'In Progress',
+            'resolved': 'Resolved'
+        };
+        return map[status] || status;
+    }
     getCategoryDisplayName(category) {
         const categoryNames = {
             'electrical': 'Electrical Issues',
@@ -705,16 +791,6 @@ class HostelManagementSystem {
         };
         return categoryNames[category] || category;
     }
-
-    getStatusDisplayName(status) {
-        const statusNames = {
-            'pending': 'Pending',
-            'in-progress': 'In Progress',
-            'resolved': 'Resolved'
-        };
-        return statusNames[status] || status;
-    }
-
     getPriorityColor(priority) {
         const colors = {
             'low': '#27ae60',
@@ -760,10 +836,18 @@ class HostelManagementSystem {
         }
     }
 
+    // Persist complaints locally (used by import/export helpers)
+    saveComplaints() {
+        try {
+            localStorage.setItem('hms_complaints_cache', JSON.stringify(this.complaints || []));
+        } catch (_) {}
+    }
+
     async loadComplaintsWithFilters() {
         try {
             const statusFilter = document.getElementById('status-filter').value;
             const categoryFilter = document.getElementById('category-filter').value;
+            const dateFilter = (document.getElementById('date-filter')?.value) || 'all';
             
             let url = '/api/complaints?';
             const params = new URLSearchParams();
@@ -780,13 +864,31 @@ class HostelManagementSystem {
             
             const response = await fetch(url);
             if (response.ok) {
-                this.complaints = await response.json();
+                const data = await response.json();
+                this.complaints = this.filterComplaintsByDate(data, dateFilter);
             } else {
                 console.error('Failed to load complaints with filters');
             }
         } catch (error) {
             console.error('Error loading complaints with filters:', error);
         }
+    }
+
+    filterComplaintsByDate(list, dateFilter) {
+        if (!Array.isArray(list) || dateFilter === 'all') return list || [];
+        const now = new Date();
+        const msInDay = 24 * 60 * 60 * 1000;
+        let thresholdMs = 0;
+        if (dateFilter === 'day') thresholdMs = msInDay;
+        else if (dateFilter === 'week') thresholdMs = 7 * msInDay;
+        else if (dateFilter === 'month') thresholdMs = 30 * msInDay;
+        if (!thresholdMs) return list;
+        const getDate = (c) => new Date(c?.submittedDate || c?.createdAt || c?.updatedAt || 0).getTime();
+        return list.filter(c => {
+            const t = getDate(c);
+            if (!t) return false;
+            return (now.getTime() - t) <= thresholdMs;
+        });
     }
 
     ensureAdminVisibility() {
