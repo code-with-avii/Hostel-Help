@@ -671,11 +671,12 @@ class HostelManagementSystem {
     async updateComplaintStatus(complaintId, newStatus) {
         try {
             const token = this.getToken();
-            const response = await fetch(`/api/complaints/${complaintId}/status`, {
+            const response = await fetch(`/api/admin/complaints/${complaintId}/status`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                    'x-user-email': this.getCurrentUserEmail()
                 },
                 body: JSON.stringify({ status: newStatus })
             });
@@ -690,8 +691,15 @@ class HostelManagementSystem {
                 this.updateDashboard();
                 this.showMessage(`Complaint status updated to ${this.getStatusDisplayName(newStatus)}`, 'success');
             } else {
-                const error = await response.json();
-                this.showMessage(`Error: ${error.error}`, 'error');
+                let errMsg = 'Request failed';
+                try {
+                    const error = await response.json();
+                    errMsg = error.error || JSON.stringify(error);
+                } catch (_) {
+                    const text = await response.text();
+                    errMsg = text || errMsg;
+                }
+                this.showMessage(`Error: ${errMsg}`, 'error');
             }
         } catch (error) {
             console.error('Error updating complaint status:', error);
@@ -704,11 +712,12 @@ class HostelManagementSystem {
         if (resolution && resolution.trim()) {
             try {
                 const token = this.getToken();
-                const response = await fetch(`/api/complaints/${complaintId}/resolve`, {
+                const response = await fetch(`/api/admin/complaints/${complaintId}/resolve`, {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
-                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                        'x-user-email': this.getCurrentUserEmail()
                     },
                     body: JSON.stringify({ resolution: resolution.trim() })
                 });
@@ -723,8 +732,15 @@ class HostelManagementSystem {
                     this.updateDashboard();
                     this.showMessage('Complaint resolved successfully!', 'success');
                 } else {
-                    const error = await response.json();
-                    this.showMessage(`Error: ${error.error}`, 'error');
+                    let errMsg = 'Request failed';
+                    try {
+                        const error = await response.json();
+                        errMsg = error.error || JSON.stringify(error);
+                    } catch (_) {
+                        const text = await response.text();
+                        errMsg = text || errMsg;
+                    }
+                    this.showMessage(`Error: ${errMsg}`, 'error');
                 }
             } catch (error) {
                 console.error('Error resolving complaint:', error);
