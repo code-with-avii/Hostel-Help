@@ -24,6 +24,7 @@
     loginForm.addEventListener('submit', function(e) {
         e.preventDefault();
         const emailEl = document.getElementById('login-email');
+        
         const email = (emailEl ? emailEl.value : '').trim().toLowerCase();
         const password = document.getElementById('login-password').value;
 
@@ -39,16 +40,16 @@
         }
 
         // Demo user password
-        if (password === 'login-password') {
-            try {
-                if (email) localStorage.setItem('hms_current_user', email);
-                localStorage.setItem('hms_user_role', 'user');
-            } catch (_) {}
-            showMsg('Login successful!', true);
-            setTimeout(() => completeLogin(), 300);
-        } else {
-            showMsg('Incorrect email or password.', false);
-        }
+        // if (password === 'login-password') {
+        //     try {
+        //         if (email) localStorage.setItem('hms_current_user', email);
+        //         localStorage.setItem('hms_user_role', 'user');
+        //     } catch (_) {}
+        //     showMsg('Login successful!', true);
+        //     setTimeout(() => completeLogin(), 300);
+        // } else {
+        //     showMsg('Incorrect email or password.', false);
+        // }
     });
 
     // Fallback for inline onclick on the Login button
@@ -118,6 +119,46 @@ class HostelManagementSystem {
             this.showSection('admin');
         }
         this.updateAuthUI();
+    }
+
+    updateAuthUI() {
+        // Update current user label and bind logout button
+        const email = this.getCurrentUserEmail();
+        const role = this.getCurrentUserRole();
+
+        const userLabel = document.getElementById('current-user-label');
+        if (userLabel) {
+            if (email && email !== 'guest@example.com') {
+                const roleDisplay = role === 'admin' ? 'Admin' : 'User';
+                userLabel.textContent = `${email} • ${roleDisplay}`;
+                userLabel.classList.remove('no-data');
+            } else {
+                userLabel.textContent = '';
+                userLabel.classList.add('no-data');
+            }
+        }
+
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn && !logoutBtn._hmsBound) {
+            logoutBtn._hmsBound = true;
+            logoutBtn.addEventListener('click', () => {
+                try {
+                    localStorage.removeItem('hms_current_user');
+                    localStorage.removeItem('hms_user_role');
+                    localStorage.removeItem('hms_token');
+                } catch (_) {}
+                window.location.href = 'signin.html';
+            });
+        }
+
+        // Optional: toggle unauthenticated banner if present
+        const unauth = document.getElementById('unauthenticated');
+        const mainApp = document.getElementById('main-app');
+        if (unauth && mainApp) {
+            const loggedIn = !!email && email !== 'guest@example.com';
+            unauth.style.display = loggedIn ? 'none' : '';
+            mainApp.style.display = loggedIn ? '' : 'none';
+        }
     }
 
     setupEventListeners() {
@@ -758,6 +799,13 @@ class HostelManagementSystem {
             console.error('Error loading complaints:', error);
             this.complaints = [];
         }
+    }
+
+    // Persist complaints locally (used by import/export helpers)
+    saveComplaints() {
+        try {
+            localStorage.setItem('hms_complaints_cache', JSON.stringify(this.complaints || []));
+        } catch (_) {}
     }
 
     async loadComplaintsWithFilters() {

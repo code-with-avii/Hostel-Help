@@ -184,7 +184,7 @@ body {
 }
 
 .complaints-list {
-    max-height: 300px;
+    max-height: 450px;
     overflow-y: auto;
 }
 

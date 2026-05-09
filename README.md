@@ -1,6 +1,6 @@
 # Hostel Management System
 
-A comprehensive frontend-only hostel management system that allows students to submit complaints, track their resolution status, and view detailed analytics through an intuitive dashboard. This is a client-side application that runs entirely in the browser.
+A comprehensive hostel management system that allows students to submit complaints, track their resolution status, and view detailed analytics through an intuitive dashboard. This is a client as well as server-side application that runs entirely in the browser.
 
 ## Features
 
