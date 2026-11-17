@@ -67,7 +67,7 @@ class HostelManagementSystem {
             ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
             ...(options.headers || {})
         };
-        const res = await fetch(url, { ...options, headers });
+        const res = await fetch(url, { ...options, headers, credentials: 'include' });
         if (res.status === 401) {
             try {
                 localStorage.clear();
@@ -100,8 +100,9 @@ class HostelManagementSystem {
         const logoutBtn = document.getElementById('logout-btn');
         if (logoutBtn && !logoutBtn._hmsBound) {
             logoutBtn._hmsBound = true;
-            logoutBtn.addEventListener('click', () => {
+            logoutBtn.addEventListener('click', async () => {
                 try {
+                    await fetch('/api/auth/sign-out', { method: 'POST', credentials: 'include' });
                     localStorage.clear();
                 } catch (_) {}
                 window.location.href = 'signin.html';
