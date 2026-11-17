@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 
 const complaintSchema = new mongoose.Schema({
+    userEmail: {
+        type: String,
+        trim: true,
+        lowercase: true
+    },
     studentName: {
         type: String,
         required: true,
@@ -55,6 +60,7 @@ const complaintSchema = new mongoose.Schema({
 });
 
 // Create indexes for better query performance
+complaintSchema.index({ userEmail: 1 });
 complaintSchema.index({ status: 1 });
 complaintSchema.index({ category: 1 });
 complaintSchema.index({ submittedDate: -1 });

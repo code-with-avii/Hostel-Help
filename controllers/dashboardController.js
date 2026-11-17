@@ -2,10 +2,12 @@ import Complaint from '../models/Complaint.js';
 
 export async function getStats(req, res) {
   try {
-    const totalComplaints = await Complaint.countDocuments();
-    const pendingComplaints = await Complaint.countDocuments({ status: 'pending' });
-    const inProgressComplaints = await Complaint.countDocuments({ status: 'in-progress' });
-    const resolvedComplaints = await Complaint.countDocuments({ status: 'resolved' });
+    const [totalComplaints, pendingComplaints, inProgressComplaints, resolvedComplaints] = await Promise.all([
+      Complaint.countDocuments(),
+      Complaint.countDocuments({ status: 'pending' }),
+      Complaint.countDocuments({ status: 'in-progress' }),
+      Complaint.countDocuments({ status: 'resolved' })
+    ]);
 
     const resolutionRate = totalComplaints > 0 ? Math.round((resolvedComplaints / totalComplaints) * 100) : 0;
 
