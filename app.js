@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import cors from "cors";
 import { toNodeHandler } from "better-auth/node";
 import { auth, ensureAdminUser } from "./auth.js";
 import connectDB from "./db/connectDB.js";
@@ -18,6 +19,12 @@ const port = process.env.MY_PORT || 5000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Enable CORS
+app.use(cors({
+    origin: true,
+    credentials: true
+}));
+
 // Forward legacy auth routes if called
 app.use((req, res, next) => {
     if (req.url === '/api/auth/login') req.url = '/api/auth/sign-in/email';
@@ -25,7 +32,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// 1. Better Auth request router: MUST be mounted before express.json()
+// 1. Better Auth request router: MUST run before express.json()
 app.all("/api/auth/*", toNodeHandler(auth));
 
 // 2. Body parser & static assets

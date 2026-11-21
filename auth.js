@@ -11,8 +11,25 @@ const db = client.db();
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL || `http://localhost:${process.env.MY_PORT || 5000}`,
-  secret: process.env.BETTER_AUTH_SECRET || process.env.JWT_SECRET || 'hostel-help-system-secure-better-auth-secret-key-32chars',
+  secret: process.env.BETTER_AUTH_SECRET || "hostel_help_secure_better_auth_secret_key_32_characters_long",
   database: mongodbAdapter(db, { client }),
+  trustedOrigins: [
+    "http://localhost:5000",
+    "http://127.0.0.1:5000",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:6000",
+    "http://127.0.0.1:6000"
+  ],
+  advanced: {
+    disableCSRFCheck: true,
+    disableOriginCheck: true,
+    useSecureCookies: false,
+    defaultCookieAttributes: {
+      sameSite: "lax",
+      secure: false
+    }
+  },
   user: {
     additionalFields: {
       role: {

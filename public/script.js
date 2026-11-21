@@ -78,12 +78,54 @@ class HostelManagementSystem {
     }
 
     updateAuthUI() {
+        const email = this.getCurrentUserEmail();
+        const role = this.getCurrentUserRole();
+        const isAdmin = this.isAdmin();
+
         const userLabel = document.getElementById('current-user-label');
         if (userLabel) {
-            const email = this.getCurrentUserEmail();
-            const role = this.getCurrentUserRole();
-            userLabel.textContent = email ? `${email} (${role})` : '';
+            userLabel.textContent = email ? `${email} • ${role.toUpperCase()}` : '';
         }
+
+        const profileEmail = document.getElementById('profile-sub-email');
+        if (profileEmail) {
+            profileEmail.textContent = email || 'Hostel Resident';
+        }
+
+        const profileTitle = document.getElementById('profile-title');
+        if (profileTitle) {
+            profileTitle.textContent = isAdmin ? 'Hostel Administrator' : 'Resident Profile';
+        }
+
+        const adminBanner = document.getElementById('admin-role-banner');
+        if (adminBanner && isAdmin) {
+            adminBanner.style.display = 'block';
+            adminBanner.innerHTML = `<i class="fas fa-shield-halved"></i> Signed in as Administrator (<strong>${this.escapeHtml(email)}</strong>). You have full privileges to manage complaints and update resolutions.`;
+        }
+    }
+
+    escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    getCategoryIcon(category) {
+        const icons = {
+            'electrical': 'fa-bolt',
+            'plumbing': 'fa-faucet-drip',
+            'wifi': 'fa-wifi',
+            'cleaning': 'fa-broom',
+            'security': 'fa-shield-halved',
+            'noise': 'fa-volume-high',
+            'furniture': 'fa-couch',
+            'other': 'fa-box-archive'
+        };
+        return icons[category] || 'fa-triangle-exclamation';
     }
 
     setupEventListeners() {
@@ -408,17 +450,30 @@ class HostelManagementSystem {
             .slice(0, 5);
 
         if (recentComplaints.length === 0) {
-            container.innerHTML = '<p class="no-data">No complaints submitted yet</p>';
+            container.innerHTML = '<p class="no-data"><i class="fas fa-clipboard-check"></i> No complaints submitted yet</p>';
             return;
         }
 
-        container.innerHTML = recentComplaints.map(c => `
-            <div class="complaint-item">
-                <h4>${this.getCategoryDisplayName(c.category)}</h4>
-                <p><strong>Room:</strong> ${c.roomNumber} | <strong>Status:</strong> ${this.getStatusDisplayName(c.status)}</p>
-                <p><strong>Submitted:</strong> ${this.formatDate(c.submittedDate || c.createdAt)}</p>
-            </div>
-        `).join('');
+        container.innerHTML = recentComplaints.map(c => {
+            const statusClass = (c.status || 'pending').replace(/\s+/g, '-');
+            const catIcon = this.getCategoryIcon(c.category);
+            return `
+                <div class="complaint-item ${statusClass}">
+                    <div class="recent-item-header">
+                        <div class="recent-cat">
+                            <i class="fas ${catIcon}"></i>
+                            <strong>${this.getCategoryDisplayName(c.category)}</strong>
+                        </div>
+                        <span class="status-badge ${statusClass}">${this.getStatusDisplayName(c.status)}</span>
+                    </div>
+                    <div class="recent-meta">
+                        <span><i class="fas fa-door-open"></i> Room ${this.escapeHtml(c.roomNumber)}</span>
+                        <span>•</span>
+                        <span><i class="fas fa-clock"></i> ${this.formatDate(c.submittedDate || c.createdAt)}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
 
     updateComplaintsList() {
@@ -426,7 +481,7 @@ class HostelManagementSystem {
         if (!container) return;
 
         if (this.complaints.length === 0) {
-            container.innerHTML = '<p class="no-data">No complaints found matching the selected filters</p>';
+            container.innerHTML = '<p class="no-data"><i class="fas fa-inbox"></i> No complaints found matching the selected filters</p>';
             return;
         }
 
@@ -434,74 +489,86 @@ class HostelManagementSystem {
     }
 
     createComplaintCard(complaint) {
-        const statusClass = (complaint.status || 'pending').replace(' ', '-');
-        const priorityColor = this.getPriorityColor(complaint.priority);
+        const statusClass = (complaint.status || 'pending').replace(/\s+/g, '-');
+        const priority = (complaint.priority || 'medium').toLowerCase();
         const isAdmin = this.isAdmin();
         const currentUser = this.getCurrentUserEmail();
         const canDelete = isAdmin || (complaint.userEmail && complaint.userEmail === currentUser);
+        const catIcon = this.getCategoryIcon(complaint.category);
 
         return `
             <div class="complaint-card ${statusClass}">
                 <div class="complaint-header">
-                    <div class="complaint-title">${this.getCategoryDisplayName(complaint.category)}</div>
-                    <div class="status-badge ${statusClass}">${this.getStatusDisplayName(complaint.status)}</div>
+                    <div class="complaint-title-wrap">
+                        <div class="category-icon-pill">
+                            <i class="fas ${catIcon}"></i>
+                        </div>
+                        <div>
+                            <div class="complaint-title">${this.getCategoryDisplayName(complaint.category)}</div>
+                            <div class="complaint-room-pill"><i class="fas fa-door-open"></i> Room ${this.escapeHtml(complaint.roomNumber)}</div>
+                        </div>
+                    </div>
+                    <div class="status-badge ${statusClass}">
+                        <i class="fas ${statusClass === 'resolved' ? 'fa-circle-check' : (statusClass === 'in-progress' ? 'fa-spinner fa-spin' : 'fa-clock')}"></i>
+                        ${this.getStatusDisplayName(complaint.status)}
+                    </div>
                 </div>
                 
                 <div class="complaint-details">
                     <div class="detail-item">
-                        <div class="detail-label">Student Name</div>
-                        <div class="detail-value">${complaint.studentName}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Room Number</div>
-                        <div class="detail-value">${complaint.roomNumber}</div>
+                        <div class="detail-label">Student</div>
+                        <div class="detail-value">${this.escapeHtml(complaint.studentName)}</div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Priority</div>
-                        <div class="detail-value" style="color: ${priorityColor}">${(complaint.priority || '').toUpperCase()}</div>
+                        <div class="detail-value">
+                            <span class="priority-pill priority-${priority}">
+                                <span class="dot"></span> ${priority.toUpperCase()}
+                            </span>
+                        </div>
                     </div>
-                    ${isAdmin && complaint.contactNumber ? `
-                    <div class="detail-item">
-                        <div class="detail-label">Contact</div>
-                        <div class="detail-value">${complaint.contactNumber}</div>
-                    </div>
-                    ` : ''}
                     <div class="detail-item">
                         <div class="detail-label">Submitted</div>
                         <div class="detail-value">${this.formatDate(complaint.submittedDate || complaint.createdAt)}</div>
                     </div>
-                    ${complaint.resolvedDate ? `
+                    ${complaint.contactNumber ? `
+                    <div class="detail-item">
+                        <div class="detail-label">Contact</div>
+                        <div class="detail-value"><a href="tel:${this.escapeHtml(complaint.contactNumber)}" class="contact-num-link"><i class="fas fa-phone-alt"></i> ${this.escapeHtml(complaint.contactNumber)}</a></div>
+                    </div>
+                    ` : (complaint.resolvedDate ? `
                     <div class="detail-item">
                         <div class="detail-label">Resolved</div>
                         <div class="detail-value">${this.formatDate(complaint.resolvedDate)}</div>
                     </div>
-                    ` : ''}
+                    ` : '')}
                 </div>
                 
                 <div class="complaint-description">
-                    <strong>Description:</strong> ${complaint.description}
+                    <strong>Issue:</strong> ${this.escapeHtml(complaint.description)}
                 </div>
                 
                 ${complaint.resolution ? `
-                <div class="complaint-description">
-                    <strong>Resolution:</strong> ${complaint.resolution}
+                <div class="complaint-resolution">
+                    <div class="resolution-title"><i class="fas fa-check-double"></i> Resolution Note</div>
+                    <p>${this.escapeHtml(complaint.resolution)}</p>
                 </div>
                 ` : ''}
                 
-                <div class="complaint-actions" style="display:flex; gap:8px; margin-top:10px;">
+                <div class="complaint-actions">
                     ${isAdmin && complaint.status === 'pending' ? `
-                        <button class="btn btn-primary btn-small" onclick="hostelSystem.updateComplaintStatus('${complaint._id}', 'in-progress')">
-                            <i class="fas fa-play"></i> In Progress
+                        <button class="btn btn-secondary btn-small" onclick="hostelSystem.updateComplaintStatus('${complaint._id}', 'in-progress')">
+                            <i class="fas fa-play"></i> Start Progress
                         </button>
                     ` : ''}
                     ${isAdmin && complaint.status !== 'resolved' ? `
                         <button class="btn btn-primary btn-small" onclick="hostelSystem.resolveComplaint('${complaint._id}')">
-                            <i class="fas fa-check"></i> Resolve
+                            <i class="fas fa-check"></i> Mark Resolved
                         </button>
                     ` : ''}
                     ${canDelete ? `
-                        <button class="btn btn-small" style="border:1px solid #ef4444; color:#ef4444; background:transparent;" onclick="hostelSystem.deleteComplaint('${complaint._id}')">
-                            <i class="fas fa-trash"></i> Delete
+                        <button class="btn btn-danger btn-small" onclick="hostelSystem.deleteComplaint('${complaint._id}')">
+                            <i class="fas fa-trash-can"></i> Delete
                         </button>
                     ` : ''}
                 </div>
@@ -625,9 +692,15 @@ class HostelManagementSystem {
         if (!container) return;
         const el = document.createElement('div');
         el.className = `message ${type}`;
-        el.textContent = message;
+        const icon = type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation';
+        el.innerHTML = `<i class="fas ${icon}"></i> <span>${this.escapeHtml(message)}</span>`;
         container.appendChild(el);
-        setTimeout(() => el.remove(), 3000);
+        setTimeout(() => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateX(20px)';
+            el.style.transition = 'all 0.3s ease';
+            setTimeout(() => el.remove(), 300);
+        }, 3200);
     }
 
     async loadComplaints() {
@@ -722,25 +795,64 @@ class HostelManagementSystem {
         const options = ['pending', 'in-progress', 'resolved']
             .map(s => `<option value="${s}" ${c.status === s ? 'selected' : ''}>${this.getStatusDisplayName(s)}</option>`)
             .join('');
+        const statusClass = (c.status || 'pending').replace(/\s+/g, '-');
+        const catIcon = this.getCategoryIcon(c.category);
+        const priority = (c.priority || 'medium').toLowerCase();
 
         return `
-            <div class="complaint-card">
+            <div class="complaint-card ${statusClass}">
                 <div class="complaint-header">
-                    <div class="complaint-title">${this.getCategoryDisplayName(c.category)} • Room ${c.roomNumber}</div>
-                    <div class="status-badge ${(c.status || '').replace(' ', '-')}">${this.getStatusDisplayName(c.status)}</div>
+                    <div class="complaint-title-wrap">
+                        <div class="category-icon-pill">
+                            <i class="fas ${catIcon}"></i>
+                        </div>
+                        <div>
+                            <div class="complaint-title">${this.getCategoryDisplayName(c.category)}</div>
+                            <div class="complaint-room-pill"><i class="fas fa-door-open"></i> Room ${this.escapeHtml(c.roomNumber)}</div>
+                        </div>
+                    </div>
+                    <div class="status-badge ${statusClass}">
+                        <i class="fas ${statusClass === 'resolved' ? 'fa-circle-check' : (statusClass === 'in-progress' ? 'fa-spinner fa-spin' : 'fa-clock')}"></i>
+                        ${this.getStatusDisplayName(c.status)}
+                    </div>
                 </div>
                 <div class="complaint-details">
-                    <div class="detail-item"><div class="detail-label">Student</div><div class="detail-value">${c.studentName}</div></div>
-                    <div class="detail-item"><div class="detail-label">Contact</div><div class="detail-value">${c.contactNumber || '-'}</div></div>
+                    <div class="detail-item"><div class="detail-label">Student</div><div class="detail-value">${this.escapeHtml(c.studentName)}</div></div>
+                    <div class="detail-item">
+                        <div class="detail-label">Priority</div>
+                        <div class="detail-value">
+                            <span class="priority-pill priority-${priority}">
+                                <span class="dot"></span> ${priority.toUpperCase()}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="detail-item"><div class="detail-label">Contact</div><div class="detail-value">${c.contactNumber ? `<a href="tel:${this.escapeHtml(c.contactNumber)}" class="contact-num-link"><i class="fas fa-phone-alt"></i> ${this.escapeHtml(c.contactNumber)}</a>` : '-'}</div></div>
                     <div class="detail-item"><div class="detail-label">Submitted</div><div class="detail-value">${this.formatDate(c.submittedDate || c.createdAt)}</div></div>
                 </div>
-                <div class="complaint-description"><strong>Description:</strong> ${c.description}</div>
-                <div class="complaint-actions" style="gap:8px; display:flex; align-items:center; flex-wrap:wrap; margin-top:10px;">
-                    <label for="status-${c._id}">Status:</label>
-                    <select id="status-${c._id}" onchange="hostelSystem.adminUpdateStatus('${c._id}', this.value)">${options}</select>
-                    <button class="btn btn-small" style="border:1px solid #ef4444; color:#ef4444; background:transparent;" onclick="hostelSystem.deleteComplaint('${c._id}').then(() => hostelSystem.loadAdminComplaints().then(() => hostelSystem.updateAdminTable()))">
-                        <i class="fas fa-trash"></i> Delete
-                    </button>
+                <div class="complaint-description"><strong>Issue:</strong> ${this.escapeHtml(c.description)}</div>
+                ${c.resolution ? `
+                <div class="complaint-resolution">
+                    <div class="resolution-title"><i class="fas fa-check-double"></i> Resolution Note</div>
+                    <p>${this.escapeHtml(c.resolution)}</p>
+                </div>
+                ` : ''}
+                <div class="complaint-actions admin-actions">
+                    <div class="admin-select-wrap">
+                        <label for="status-${c._id}"><i class="fas fa-arrows-rotate"></i> Status:</label>
+                        <select id="status-${c._id}" class="admin-status-select" onchange="hostelSystem.adminUpdateStatus('${c._id}', this.value)">
+                            ${options}
+                        </select>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        ${c.status !== 'resolved' ? `
+                            <button class="btn btn-primary btn-small" onclick="hostelSystem.resolveComplaint('${c._id}').then(() => hostelSystem.loadAdminComplaints().then(() => hostelSystem.updateAdminTable()))">
+                                <i class="fas fa-check"></i> Resolve
+                            </button>
+                        ` : ''}
+                        <button class="btn btn-danger btn-small" onclick="hostelSystem.deleteComplaint('${c._id}').then(() => hostelSystem.loadAdminComplaints().then(() => hostelSystem.updateAdminTable()))">
+                            <i class="fas fa-trash-can"></i> Delete
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
